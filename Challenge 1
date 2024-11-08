@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Verificar que se proporcionen todos los argumentos
+if [ "$#" -ne 8 ]; then
+    echo "Uso: $0 <Nombre_VM> <Tipo_OS> <CPUs> <RAM_GB> <VRAM_MB> <Disco_Duro_GB> <Nombre_Controlador_SATA> <Nombre_Controlador_IDE>"
+    exit 1
+fi
+
+# Asignar los argumentos a variables
+VM_NAME=$1
+OS_TYPE=$2
+CPUS=$3
+RAM_GB=$4
+VRAM_MB=$5
+DISK_SIZE_GB=$6
+SATA_CONTROLLER=$7
+IDE_CONTROLLER=$8
+
+# Convertir GB a MB para la memoria RAM
+RAM_MB=$((RAM_GB * 1024))
+
+# Crear la máquina virtual
+echo "Creando la máquina virtual '$VM_NAME'..."
+VBoxManage createvm --name "$VM_NAME" --ostype "$OS_TYPE" --register
+
+# Configurar la máquina virtual con el nombre, tipo de OS, CPUs, RAM y VRAM
+echo "Configurando la máquina virtual con $CPUS CPU(s), $RAM_GB GB RAM y $VRAM_MB MB VRAM..."
+VBoxManage modifyvm "$VM_NAME" --cpus "$CPUS" --memory "$RAM_MB" --vram "$VRAM_MB"
+
+# Crear y configurar el disco duro virtual
+DISK_PATH="$HOME/VirtualBox VMs/$VM_NAME/$VM_NAME.vdi"
+echo "Creando un disco duro virtual de $DISK_SIZE_GB GB en '$DISK_PATH'..."
+VBoxManage createhd --filename "$DISK_PATH" --size $((DISK_SIZE_GB * 1024))
+
+# Crear el controlador SATA y asociarlo al disco duro
+echo "Creando el controlador SATA '$SATA_CONTROLLER' y asociándolo al disco duro..."
+VBoxManage storagectl "$VM_NAME" --name "$SATA_CONTROLLER" --add sata --controller IntelAhci
+VBoxManage storageattach "$VM_NAME" --storagectl "$SATA_CONTROLLER" --port 0 --device 0 --type hdd --medium "$DISK_PATH"
+
+# Crear el controlador IDE para CD/DVD
+echo "Creando el controlador IDE '$IDE_CONTROLLER' para CD/DVD..."
+VBoxManage storagectl "$VM_NAME" --name "$IDE_CONTROLLER" --add ide
+
+# Imprimir la configuración de la máquina virtual
+echo "===== Configuración de la Máquina Virtual '$VM_NAME' ====="
+VBoxManage showvminfo "$VM_NAME" | grep -E "Name:|Guest OS:|Memory size:|VRAM size:|Number of CPUs:|SATA Controller|IDE Controller|Hard disk"
+
+echo "La máquina virtual '$VM_NAME' ha sido creada y configurada exitosamente."
